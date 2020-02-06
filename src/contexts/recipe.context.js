@@ -1,53 +1,44 @@
-import React, { createContext } from "react";
-import useLocalStorageReducer from "../hooks/useLocalStorageReducer";
-import recipeReducer from "../reducers/recipe.reducer";
+import React, { createContext, useState } from "react";
+import axios from "axios";
+import shortid from 'shortid';
 
 export const RecipeContext = createContext();
-export const RecipeDispatchContext = createContext();
-
-const initialRecipes = [
-  {
-    "id": 1,
-    "name": "Pizza",
-    "description": "Put it in the oven",
-    "ingredients": [
-      {id: 1, "name": "dough"},
-      {id: 2, "name": "cheese"},
-      {id: 3, "name": "tomato"}
-    ]
-  },
-  {
-    "id": 2,
-    "name": "Pizza v2",
-    "description": "Put it in the oven v2",
-    "ingredients": [
-      {id: 4, "name": "dough"},
-      {id: 5, "name": "cheese"},
-      {id: 6, "name": "tomato"},
-      {id: 7, "name": "potatoes"}
-    ]
-  },
-  {
-    "id": 3,
-    "name": "Pizza v3",
-    "description": "Put it in the oven v3",
-    "ingredients": [
-      {id: 8, "name": "dough"},
-      {id: 9, "name": "cheese"},
-      {id: 10, "name": "tomato"}
-    ]
-  },
-];
-
 
 export function RecipesProvider(props) {
-  const [recipes, recipesDispatch] = useLocalStorageReducer('recipes', initialRecipes, recipeReducer);
+  const [loading, setLoading] = useState(true);
+  const [recipes, setRecipes] = useState([]);
+
+  async function loadRecipes(searchWord) {
+    const search = searchWord || '';
+    const response = await axios.get(`http://localhost:8000/recipes/?name=${search}`);
+    console.log('fetched all ingredients filtered by', search);
+    setRecipes(response.data);
+    setLoading(false);
+  }
+
+  async function addRecipe(recipe) {
+    const response = await axios.post('http://localhost:8000/recipes/', recipe);
+    console.log('created new recipe');
+    await loadRecipes();
+    return response.data;
+  }
+
+  async function getRecipe(recipeId) {
+    const response = await axios.get(`http://localhost:8000/recipes/${recipeId}/`);
+    console.log('fetched recipe ' + recipeId);
+    response.data.ingredients = response.data.ingredients.map(ing => ({...ing, id: shortid.generate()}));
+    return response.data;
+  }
+
+  async function updateRecipe(recipeId, newRecipe) {
+    const response = await axios.patch(`http://localhost:8000/recipes/${recipeId}/`, newRecipe);
+    console.log('updated recipe ' + recipeId);
+    return response.data;
+  }
 
   return (
-    <RecipeContext.Provider value={recipes}>
-      <RecipeDispatchContext.Provider value={recipesDispatch}>
-        {props.children}
-      </RecipeDispatchContext.Provider>
+    <RecipeContext.Provider value={{recipes, loading, loadRecipes, addRecipe, getRecipe, updateRecipe}}>
+      {props.children}
     </RecipeContext.Provider>
   )
 }
